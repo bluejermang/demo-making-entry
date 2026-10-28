@@ -6,6 +6,8 @@
     <입구>/?play=<데모 id>       → <서버>/play/<데모 id>      (게시한 데모 링크)
     <입구>/?play=<데모 id>&embed → <서버>/play/<데모 id>?embed (제품에 삽입한 iframe — 여백 없이 · 바탕 투명)
     ?play 말고 붙은 것(?step=3 · ?draft=1)과 #… 는 그대로 넘긴다.
+    <입구>/?team=<코드>          → 이 브라우저가 팀 접속 코드를 기억하고(주소에서는 지움) 편집기로 갈 때 <서버>/?code=<코드> 로 건넨다
+                                  (2026-10-28 — 서버는 편집기 · 목록 · 편집 중 화면을 팀 코드를 넣은 브라우저에만 연다. 게시한 데모 링크에는 붙이지 않는다)
   여기에는 입구 한 장과 서버 주소만 있다 — 데모 문서 · 그림 · 영상은 올리지 않는다.
 -->
 <html lang="ko">
@@ -59,9 +61,23 @@
     var retry = document.getElementById('retry');
     var checked = document.getElementById('checked');
     var timer = null;
+    var TEAM_KEY = 'demoMakingTeamCode';
     var params = new URLSearchParams(location.search);
     var play = params.get('play'); // 게시한 데모 링크 · 삽입 코드 (없으면 null = 편집기 화면)
     var isPlay = play !== null;
+
+    // 팀원용 주소(?team=코드): 코드를 이 브라우저에 기억하고 주소창에서는 지운다. 저장하지 못하면 이번 한 번만 건넨다
+    var teamGiven = (params.get('team') || '').trim().toUpperCase();
+    if (teamGiven) {
+      try { localStorage.setItem(TEAM_KEY, teamGiven); } catch (e) { /* 서버 화면에서 코드를 넣으면 된다 */ }
+      try {
+        var keep = location.search.replace(/^\?/, '').split('&').filter(function (part) { return part && part.split('=')[0] !== 'team'; }).join('&');
+        history.replaceState(null, '', location.pathname + (keep ? '?' + keep : '') + location.hash);
+      } catch (e) { /* 주소는 그대로 */ }
+    }
+    function teamCode() {
+      try { return localStorage.getItem(TEAM_KEY) || teamGiven; } catch (e) { return teamGiven; }
+    }
 
     if (isPlay) {
       document.title = '제품 데모';
@@ -87,14 +103,23 @@
         if (!part) return false;
         var key = part.split('=')[0];
         try { key = decodeURIComponent(key.replace(/\+/g, ' ')); } catch (e) { /* 그대로 */ }
-        return key !== 'play';
+        return key !== 'play' && key !== 'team';
       }).join('&');
     }
 
-    /** 옮겨 갈 주소: 편집기는 서버 주소 + 보던 화면(#…), 데모 링크는 서버 주소 + play/<id> */
+    /**
+     * 옮겨 갈 주소: 편집기는 서버 주소 + 보던 화면(#…), 데모 링크는 서버 주소 + play/<id>.
+     * 기억한 팀 접속 코드는 편집기와 편집 중 화면(?draft)에만 ?code= 로 건넨다 — 서버가 쿠키를 주고 code 를 뗀 주소로 보낸다
+     */
     function targetFor(url) {
-      if (!isPlay) return new URL(location.hash || '', url).href;
+      var code = teamCode();
+      if (!isPlay) {
+        var to = new URL(location.hash || '', url);
+        if (code) to.search = '?code=' + encodeURIComponent(code);
+        return to.href;
+      }
       var rest = restQuery();
+      if (code && /(^|&)draft(=|&|$)/.test(rest)) rest += '&code=' + encodeURIComponent(code);
       return new URL('play/' + encodeURIComponent(play) + (rest ? '?' + rest : '') + location.hash, url).href;
     }
 
