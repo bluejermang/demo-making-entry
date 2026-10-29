@@ -5,7 +5,8 @@
     <입구>/#…                    → <서버>/#…                  (편집기 · 데모 목록 — 보던 화면 주소도 그대로)
     <입구>/?play=<데모 id>       → <서버>/play/<데모 id>      (게시한 데모 링크)
     <입구>/?play=<데모 id>&embed → <서버>/play/<데모 id>?embed (제품에 삽입한 iframe — 여백 없이 · 바탕 투명)
-    ?play 말고 붙은 것(?step=3 · ?draft=1)과 #… 는 그대로 넘긴다.
+    <입구>/?guide=<데모 id>      → <서버>/guide/<데모 id>     (Step-by-Step 가이드 — 2026-10-29)
+    ?play · ?guide 말고 붙은 것(?step=3 · ?draft=1)과 #… 는 그대로 넘긴다.
     <입구>/?team=<코드>          → 이 브라우저가 팀 접속 코드를 기억하고(주소에서는 지움) 편집기로 갈 때 <서버>/?code=<코드> 로 건넨다
                                   (2026-10-28 — 서버는 편집기 · 목록 · 편집 중 화면을 팀 코드를 넣은 브라우저에만 연다. 게시한 데모 링크에는 붙이지 않는다)
   여기에는 입구 한 장과 서버 주소만 있다 — 데모 문서 · 그림 · 영상은 올리지 않는다.
@@ -64,6 +65,12 @@
     var TEAM_KEY = 'demoMakingTeamCode';
     var params = new URLSearchParams(location.search);
     var play = params.get('play'); // 게시한 데모 링크 · 삽입 코드 (없으면 null = 편집기 화면)
+    var page = 'play';
+    // Step-by-Step 가이드 링크 (?guide=<id>, 2026-10-29) — 데모 링크와 같은 길로 <서버>/guide/<id> 에
+    if (play === null && params.get('guide') !== null) {
+      play = params.get('guide');
+      page = 'guide';
+    }
     var isPlay = play !== null;
 
     // 팀원용 주소(?team=코드): 코드를 이 브라우저에 기억하고 주소창에서는 지운다. 저장하지 못하면 이번 한 번만 건넨다
@@ -80,8 +87,8 @@
     }
 
     if (isPlay) {
-      document.title = '제품 데모';
-      document.getElementById('title').textContent = '제품 데모';
+      document.title = page === 'guide' ? '단계별 가이드' : '제품 데모';
+      document.getElementById('title').textContent = document.title;
     }
 
     function withTimeout(ms) {
@@ -103,7 +110,7 @@
         if (!part) return false;
         var key = part.split('=')[0];
         try { key = decodeURIComponent(key.replace(/\+/g, ' ')); } catch (e) { /* 그대로 */ }
-        return key !== 'play' && key !== 'team';
+        return key !== 'play' && key !== 'guide' && key !== 'team';
       }).join('&');
     }
 
@@ -120,7 +127,7 @@
       }
       var rest = restQuery();
       if (code && /(^|&)draft(=|&|$)/.test(rest)) rest += '&code=' + encodeURIComponent(code);
-      return new URL('play/' + encodeURIComponent(play) + (rest ? '?' + rest : '') + location.hash, url).href;
+      return new URL(page + '/' + encodeURIComponent(play) + (rest ? '?' + rest : '') + location.hash, url).href;
     }
 
     function showOff(hasServer) {
